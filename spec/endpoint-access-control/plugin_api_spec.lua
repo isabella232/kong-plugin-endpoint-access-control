@@ -24,14 +24,13 @@ describe("EndpointAccessControl", function()
     context("POST new permission setting", function()
 
       it("should respond with 201 on success", function ()
-
         local response = send_admin_request({
           method = "POST",
           path = "/endpoint-access-control/allowed-endpoints",
           body = {
-              key = 'key001',
-              method = 'GET',
-              url_pattern = "^/v2/email$"
+            key = "key001",
+            method = "GET",
+            url_pattern = "/api/v1/foobar"
           },
           headers = {
             ["Content-Type"] = "application/json"
@@ -40,6 +39,69 @@ describe("EndpointAccessControl", function()
 
         assert.are.equals(201, response.status)
       end)
+
+      it("should respond with 400 on missing fields", function ()
+        local response = send_admin_request({
+          method = "POST",
+          path = "/endpoint-access-control/allowed-endpoints",
+          body = {},
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
+        })
+
+        assert.are.equals(400, response.status)
+        assert.are.same({
+          method = "required field missing",
+          url_pattern = "required field missing",
+          key = "required field missing"
+        }, response.body.fields)
+      end)
+
+      local accepted_methods = { "GET", "POST", "PUT", "PATCH", "DELETE" }
+
+      for _, http_method in pairs(accepted_methods) do
+        it("should accept '" .. http_method .. "' method in payload", function ()
+          local response = send_admin_request({
+            method = "POST",
+            path = "/endpoint-access-control/allowed-endpoints",
+            body = {
+              key = "key001",
+              method = http_method,
+              url_pattern = "/api/v1/foobar"
+            },
+            headers = {
+              ["Content-Type"] = "application/json"
+            }
+          })
+
+          assert.are.equals(201, response.status)
+        end)
+      end
+
+      local some_invalid_methods = { "get", "foo", "" }
+
+      for _, http_method in pairs(some_invalid_methods) do
+        it("should refuse '" .. http_method .. "' method in payload", function ()
+          local response = send_admin_request({
+            method = "POST",
+            path = "/endpoint-access-control/allowed-endpoints",
+            body = {
+              key = "key001",
+              method = http_method,
+              url_pattern = "/api/v1/foobar"
+            },
+            headers = {
+              ["Content-Type"] = "application/json"
+            }
+          })
+
+          assert.are.equals(400, response.status)
+          assert.are.same({
+            method = "expected one of: GET, POST, PUT, PATCH, DELETE"
+          }, response.body.fields)
+        end)
+      end
 
     end)
   end)
