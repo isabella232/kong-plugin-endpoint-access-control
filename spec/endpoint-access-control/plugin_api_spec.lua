@@ -1,4 +1,5 @@
 local helpers = require "spec.helpers"
+local match = require "luassert.match"
 local kong_client = require "kong_client.spec.test_helpers"
 
 describe("EndpointAccessControl", function()
@@ -103,6 +104,92 @@ describe("EndpointAccessControl", function()
         end)
       end
 
+      it("should add created_at field with timestamp on success", function ()
+        local response = send_admin_request({
+          method = "POST",
+          path = "/endpoint-access-control/allowed-endpoints",
+          body = {
+            key = "key001",
+            method = "POST",
+            url_pattern = "/api/v1/foobar"
+          },
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
+        })
+
+        assert.is_true(response.body.created_at > 0)
+      end)
+    end)
+
+    context("GET existing permission setting #only", function()
+
+      it("should return the permission setting to the specific key when it exists", function ()
+
+        local settings = {
+          { key = "key001", method = "POST", url_pattern = "/api/v1/foobar" },
+          { key = "key001", method = "GET", url_pattern = "/api/v1/foobar/2" },
+          { key = "key002", method = "GET", url_pattern = "/api/v1/foobar/bar" }
+        }
+
+        for _, setting in ipairs(settings) do
+          send_admin_request({
+            method = "POST",
+            path = "/endpoint-access-control/allowed-endpoints",
+            body = setting,
+            headers = {
+              ["Content-Type"] = "application/json"
+            }
+          })
+        end
+
+        local response = send_admin_request({
+          method = "GET",
+          path = "/endpoint-access-control/keys/key001/allowed-endpoints",
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
+        })
+
+        assert.are.equals(200, response.status)
+
+        local allowed_endpoints = {
+          { key = "key001", method = "POST", url_pattern = "/api/v1/foobar" },
+          { key = "key001", method = "GET", url_pattern = "/api/v1/foobar/2" },
+        }
+
+        for index, entpoint in pairs(allowed_endpoints) do
+          assert.are.equals(response.body.allowed_endpoints[index].key, entpoint.key)
+          assert.are.equals(response.body.allowed_endpoints[index].method, entpoint.method)
+          assert.are.equals(response.body.allowed_endpoints[index].url_pattern, entpoint.url_pattern)
+        end
+
+      end)
+
+      it("should return 404 when the key does not exists", function ()
+        local response = send_admin_request({
+          method = "GET",
+          path = "/endpoint-access-control/keys/key001/allowed-endpoints",
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
+        })
+
+        assert.are.equals(404, response.status)
+      end)
+
+      it("should return 500 when database error occurred", function ()
+        local response = send_admin_request({
+          method = "GET",
+          path = "/endpoint-access-control/keys/'/allowed-endpoints",
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
+        })
+
+        assert.are.equals(500, response.status)
+        assert.are.equals("Database error", response.body)
+      end)
     end)
   end)
 end)
