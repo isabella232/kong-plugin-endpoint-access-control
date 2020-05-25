@@ -27,7 +27,6 @@ describe("EndpointAccessControl", function()
     before_each(function()
       service = kong_sdk.services:create({
         name = "test-service",
-        id = "0a7f3795-bc92-43b5-aada-258113b7c4ed",
         url = "http://mockbin:8080/request"
       })
 
