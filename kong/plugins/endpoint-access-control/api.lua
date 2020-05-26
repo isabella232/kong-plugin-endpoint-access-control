@@ -16,18 +16,13 @@ return {
     schema = schema,
     methods = {
       DELETE = function(self, db, helpers)
-        local query = string.format("DELETE FROM endpoint_access_control_permissions WHERE id = '%s'", self.params.id)
-        local result, err = kong.db.connector:query(query)
+        local success, err = db[schema.name]:delete({id = self.params.id})
 
-        if err then
+        if not success then
           Logger.getInstance(ngx):logError({
             msg = err,
           })
           return kong.response.exit(500, "Database error")
-        end
-
-        if result.affected_rows == 0 then
-          return kong.response.exit(404, "The requested resource does not exist")
         end
 
         return kong.response.exit(204)

@@ -193,7 +193,7 @@ describe("EndpointAccessControl", function()
       end)
     end)
 
-    context("DELETE existing permission setting #only", function()
+    context("DELETE existing permission setting", function()
 
       it("should return the permission setting to the specific key when it exists", function ()
 
@@ -215,20 +215,6 @@ describe("EndpointAccessControl", function()
         })
 
         assert.are.equals(204, delete_response.status)
-      end)
-
-      it("should return 404 when the key does not exists", function ()
-
-        local response = send_admin_request({
-          method = "DELETE",
-          path = "/allowed-endpoints/" .. uuid(),
-          headers = {
-            ["Content-Type"] = "application/json"
-          }
-        })
-
-        assert.are.equals(404, response.status)
-        assert.are.equals("The requested resource does not exist", response.body)
       end)
 
       it("should return 500 when database error occurred", function ()
