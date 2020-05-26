@@ -4,7 +4,7 @@ local Logger = require("logger")
 local schema = kong.db.endpoint_access_control_permissions.schema
 
 return {
-  ["/endpoint-access-control/allowed-endpoints"] = {
+  ["/allowed-endpoints"] = {
     schema = schema,
     methods = {
       POST = function(self, db, helpers)
@@ -12,7 +12,29 @@ return {
       end
     }
   },
-  ["/endpoint-access-control/keys/:key/allowed-endpoints"] = {
+  ["/allowed-endpoints/:id"] = {
+    schema = schema,
+    methods = {
+      DELETE = function(self, db, helpers)
+        local query = string.format("DELETE FROM endpoint_access_control_permissions WHERE id = '%s'", self.params.id)
+        local result, err = kong.db.connector:query(query)
+
+        if err then
+          Logger.getInstance(ngx):logError({
+            msg = err,
+          })
+          return kong.response.exit(500, "Database error")
+        end
+
+        if result.affected_rows == 0 then
+          return kong.response.exit(404, "The requested resource does not exist")
+        end
+
+        return kong.response.exit(204)
+      end
+    }
+  },
+  ["/allowed-endpoints/keys/:key"] = {
     schema = schema,
     methods = {
       GET = function(self, db, helpers)

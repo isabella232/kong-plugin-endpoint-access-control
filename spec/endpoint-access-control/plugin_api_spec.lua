@@ -1,6 +1,6 @@
 local helpers = require "spec.helpers"
-local match = require "luassert.match"
 local kong_client = require "kong_client.spec.test_helpers"
+local uuid = require "kong.tools.utils".uuid
 
 describe("EndpointAccessControl", function()
   local kong_sdk, send_request, send_admin_request
@@ -27,7 +27,7 @@ describe("EndpointAccessControl", function()
       it("should respond with 201 on success", function ()
         local response = send_admin_request({
           method = "POST",
-          path = "/endpoint-access-control/allowed-endpoints",
+          path = "/allowed-endpoints",
           body = {
             key = "key001",
             method = "GET",
@@ -44,7 +44,7 @@ describe("EndpointAccessControl", function()
       it("should respond with 400 on missing fields", function ()
         local response = send_admin_request({
           method = "POST",
-          path = "/endpoint-access-control/allowed-endpoints",
+          path = "/allowed-endpoints",
           body = {},
           headers = {
             ["Content-Type"] = "application/json"
@@ -65,7 +65,7 @@ describe("EndpointAccessControl", function()
         it("should accept '" .. http_method .. "' method in payload", function ()
           local response = send_admin_request({
             method = "POST",
-            path = "/endpoint-access-control/allowed-endpoints",
+            path = "/allowed-endpoints",
             body = {
               key = "key001",
               method = http_method,
@@ -86,7 +86,7 @@ describe("EndpointAccessControl", function()
         it("should refuse '" .. http_method .. "' method in payload", function ()
           local response = send_admin_request({
             method = "POST",
-            path = "/endpoint-access-control/allowed-endpoints",
+            path = "/allowed-endpoints",
             body = {
               key = "key001",
               method = http_method,
@@ -107,7 +107,7 @@ describe("EndpointAccessControl", function()
       it("should add created_at field with timestamp on success", function ()
         local response = send_admin_request({
           method = "POST",
-          path = "/endpoint-access-control/allowed-endpoints",
+          path = "/allowed-endpoints",
           body = {
             key = "key001",
             method = "POST",
@@ -122,7 +122,7 @@ describe("EndpointAccessControl", function()
       end)
     end)
 
-    context("GET existing permission setting #only", function()
+    context("GET existing permission setting", function()
 
       it("should return the permission setting to the specific key when it exists", function ()
 
@@ -135,7 +135,7 @@ describe("EndpointAccessControl", function()
         for _, setting in ipairs(settings) do
           send_admin_request({
             method = "POST",
-            path = "/endpoint-access-control/allowed-endpoints",
+            path = "/allowed-endpoints",
             body = setting,
             headers = {
               ["Content-Type"] = "application/json"
@@ -145,7 +145,7 @@ describe("EndpointAccessControl", function()
 
         local response = send_admin_request({
           method = "GET",
-          path = "/endpoint-access-control/keys/key001/allowed-endpoints",
+          path = "/allowed-endpoints/keys/key001",
           headers = {
             ["Content-Type"] = "application/json"
           }
@@ -169,19 +169,72 @@ describe("EndpointAccessControl", function()
       it("should return 404 when the key does not exists", function ()
         local response = send_admin_request({
           method = "GET",
-          path = "/endpoint-access-control/keys/key001/allowed-endpoints",
+          path = "/allowed-endpoints/keys/key001/",
           headers = {
             ["Content-Type"] = "application/json"
           }
         })
 
         assert.are.equals(404, response.status)
+        assert.are.equals("The requested resource does not exist", response.body)
       end)
 
       it("should return 500 when database error occurred", function ()
         local response = send_admin_request({
           method = "GET",
-          path = "/endpoint-access-control/keys/'/allowed-endpoints",
+          path = "/allowed-endpoints/keys/'",
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
+        })
+
+        assert.are.equals(500, response.status)
+        assert.are.equals("Database error", response.body)
+      end)
+    end)
+
+    context("DELETE existing permission setting #only", function()
+
+      it("should return the permission setting to the specific key when it exists", function ()
+
+        local setting_creation_response = send_admin_request({
+          method = "POST",
+          path = "/allowed-endpoints",
+          body = { key = "key001", method = "POST", url_pattern = "/api/v1/foobar" },
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
+        })
+
+        local delete_response = send_admin_request({
+          method = "DELETE",
+          path = "/allowed-endpoints/" .. setting_creation_response.body.id,
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
+        })
+
+        assert.are.equals(204, delete_response.status)
+      end)
+
+      it("should return 404 when the key does not exists", function ()
+
+        local response = send_admin_request({
+          method = "DELETE",
+          path = "/allowed-endpoints/" .. uuid(),
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
+        })
+
+        assert.are.equals(404, response.status)
+        assert.are.equals("The requested resource does not exist", response.body)
+      end)
+
+      it("should return 500 when database error occurred", function ()
+        local response = send_admin_request({
+          method = "DELETE",
+          path = "/allowed-endpoints/123",
           headers = {
             ["Content-Type"] = "application/json"
           }
