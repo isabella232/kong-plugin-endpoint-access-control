@@ -249,32 +249,32 @@ describe("EndpointAccessControl", function()
       assert.are.equal(403, response.status)
     end)
 
-    -- it("should respond with 500 when user is invalid", function()
-    --   local api_user_endpoint_access = helpers.db.endpoint_access_control_permissions:insert({
-    --     key = "test_user_wsse",
-    --     method = "POST",
-    --     url_pattern = "^/test/%d+$"
-    --   })
+    it("should respond with 500 when user is invalid", function()
+      local api_user_endpoint_access = helpers.db.endpoint_access_control_permissions:insert({
+        key = "test_user_wsse",
+        method = "POST",
+        url_pattern = "^/test/%d+$"
+      })
 
-    --   kong_sdk.plugins:create({
-    --     service = {
-    --       id = service.id
-    --     },
-    --     name = "endpoint-access-control",
-    --     config = {
-    --       darklaunch = false
-    --     }
-    --   })
+      kong_sdk.plugins:create({
+        service = {
+          id = service.id
+        },
+        name = "endpoint-access-control",
+        config = {
+          darklaunch = false
+        }
+      })
 
-    --   local response = send_request({
-    --     method = "GET",
-    --     path = "/test/1234",
-    --     headers = {
-    --       ["x-consumer-username"] = "' or 1=1;--"
-    --     }
-    --   })
+      local response = send_request({
+        method = "GET",
+        path = "/test/1234",
+        headers = {
+          ["x-consumer-username"] = "' or 1=1;--"
+        }
+      })
 
-    --   assert.are.equal(500, response.status)
-    -- end)
+      assert.are.equal(500, response.status)
+    end)
   end)
 end)

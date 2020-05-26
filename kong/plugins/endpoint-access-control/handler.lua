@@ -15,6 +15,10 @@ function access_for_api_key_and_method(api_key,  method)
     return kong.response.exit(403)
   end
 
+  if string.find(api_key, "'") then
+    kong.response.exit(500, { message = "Consumer username contains illegal characters." })
+  end
+
   local api_key_endpoint_access_list = EndpointAccessControlPermissionsDb.find_by_api_key_and_method(api_key, method)
 
   local path = kong.request.get_path()
