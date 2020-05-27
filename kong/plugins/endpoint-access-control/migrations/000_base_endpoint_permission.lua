@@ -7,7 +7,6 @@ return {
                 key TEXT,
                 method TEXT,
                 url_pattern TEXT,
-                cache_key TEXT UNIQUE,
                 PRIMARY KEY (id),
                 UNIQUE (key, method, url_pattern)
               );

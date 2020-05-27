@@ -2,7 +2,7 @@ local helpers = require "spec.helpers"
 local kong_client = require "kong_client.spec.test_helpers"
 
 describe("EndpointAccessControl", function()
-  local kong_sdk, send_request, send_admin_request
+  local kong_sdk, send_request, send_admin_request, db
 
   setup(function()
     helpers.start_kong({ plugins = "endpoint-access-control" })
@@ -10,6 +10,7 @@ describe("EndpointAccessControl", function()
     kong_sdk = kong_client.create_kong_client()
     send_request = kong_client.create_request_sender(helpers.proxy_client())
     send_admin_request = kong_client.create_request_sender(helpers.admin_client())
+    _, db = helpers.get_db_utils()
   end)
 
   teardown(function()
@@ -88,7 +89,7 @@ describe("EndpointAccessControl", function()
     end)
 
     it("should not terminate request when api call is enabled for the api user", function()
-      local api_user_endpoint_access = helpers.db.endpoint_access_control_permissions:insert({
+      helpers.db.endpoint_access_control_permissions:insert({
         key = "test_user_wsse",
         method = "POST",
         url_pattern = "/test"
@@ -116,8 +117,8 @@ describe("EndpointAccessControl", function()
     end)
 
     it("should terminate request when api call is not enabled for the api user", function()
-      local api_user_endpoint_access = helpers.db.endpoint_access_control_permissions:insert({
-        key = "test_user_wsse",
+      helpers.db.endpoint_access_control_permissions:insert({
+        key = "test_user_wsse_002",
         method = "POST",
         url_pattern = "/test_not_matching"
       })
@@ -136,7 +137,7 @@ describe("EndpointAccessControl", function()
         method = "POST",
         path = "/test",
         headers = {
-          ["x-consumer-username"] = "test_user_wsse"
+          ["x-consumer-username"] = "test_user_wsse_002"
         }
       })
 
@@ -158,7 +159,7 @@ describe("EndpointAccessControl", function()
         method = "POST",
         path = "/test",
         headers = {
-          ["x-consumer-username"] = "test_user_wsse"
+          ["x-consumer-username"] = "test_user_wsse_003"
         }
       })
 
@@ -166,8 +167,8 @@ describe("EndpointAccessControl", function()
     end)
 
     it("should allow request when the request path matches the url pattern", function()
-      local api_user_endpoint_access = helpers.db.endpoint_access_control_permissions:insert({
-        key = "test_user_wsse",
+      helpers.db.endpoint_access_control_permissions:insert({
+        key = "test_user_wsse_004",
         method = "POST",
         url_pattern = "^/test/%d+$"
       })
@@ -186,7 +187,7 @@ describe("EndpointAccessControl", function()
         method = "POST",
         path = "/test/1234",
         headers = {
-          ["x-consumer-username"] = "test_user_wsse"
+          ["x-consumer-username"] = "test_user_wsse_004"
         }
       })
 
@@ -194,8 +195,8 @@ describe("EndpointAccessControl", function()
     end)
 
     it("should allow request when the request with query params matches url pattern", function()
-      local api_user_endpoint_access = helpers.db.endpoint_access_control_permissions:insert({
-        key = "test_user_wsse",
+      helpers.db.endpoint_access_control_permissions:insert({
+        key = "test_user_wsse_005",
         method = "POST",
         url_pattern = "^/test/%d+$"
       })
@@ -214,7 +215,7 @@ describe("EndpointAccessControl", function()
         method = "POST",
         path = "/test/1234?test=1",
         headers = {
-          ["x-consumer-username"] = "test_user_wsse"
+          ["x-consumer-username"] = "test_user_wsse_005"
         }
       })
 
@@ -222,8 +223,8 @@ describe("EndpointAccessControl", function()
     end)
 
     it("should terminate request when the request path with request method does not match any enabled endpoint", function()
-      local api_user_endpoint_access = helpers.db.endpoint_access_control_permissions:insert({
-        key = "test_user_wsse",
+      helpers.db.endpoint_access_control_permissions:insert({
+        key = "test_user_wsse_006",
         method = "POST",
         url_pattern = "^/test/%d+$"
       })
@@ -242,7 +243,7 @@ describe("EndpointAccessControl", function()
         method = "GET",
         path = "/test/1234",
         headers = {
-          ["x-consumer-username"] = "test_user_wsse"
+          ["x-consumer-username"] = "test_user_wsse_006"
         }
       })
 
@@ -250,8 +251,8 @@ describe("EndpointAccessControl", function()
     end)
 
     it("should respond with 500 when user is invalid", function()
-      local api_user_endpoint_access = helpers.db.endpoint_access_control_permissions:insert({
-        key = "test_user_wsse",
+      helpers.db.endpoint_access_control_permissions:insert({
+        key = "test_user_wsse_007",
         method = "POST",
         url_pattern = "^/test/%d+$"
       })
@@ -275,6 +276,50 @@ describe("EndpointAccessControl", function()
       })
 
       assert.are.equal(500, response.status)
+    end)
+
+    context("Cache key method collections", function()
+
+      it("should keep collection in cache", function()
+        helpers.db.endpoint_access_control_permissions:insert({
+          key = "test_user_wsse_008",
+          method = "POST",
+          url_pattern = "^/test/%d+$"
+        })
+
+        kong_sdk.plugins:create({
+          service = {
+            id = service.id
+          },
+          name = "endpoint-access-control",
+          config = {
+            darklaunch = false
+          }
+        })
+
+        local first_response = send_request({
+          method = "POST",
+          path = "/test/1234",
+          headers = {
+            ["x-consumer-username"] = "test_user_wsse_008"
+          }
+        })
+
+        assert.are.equal(200, first_response.status)
+
+        assert(db.endpoint_access_control_permissions:truncate())
+
+        local second_response = send_request({
+          method = "POST",
+          path = "/test/1234",
+          headers = {
+            ["x-consumer-username"] = "test_user_wsse_008"
+          }
+        })
+
+        assert.are.equal(200, second_response.status)
+      end)
+
     end)
   end)
 end)

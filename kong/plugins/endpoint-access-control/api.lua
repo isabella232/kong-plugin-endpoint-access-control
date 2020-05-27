@@ -3,11 +3,20 @@ local Logger = require("logger")
 
 local schema = kong.db.endpoint_access_control_permissions.schema
 
+local function get_cache_key(api_key, method)
+  return "endpoint_access_control_permissions:" .. api_key .. ":" .. method
+end
+
 return {
   ["/allowed-endpoints"] = {
     schema = schema,
     methods = {
       POST = function(self, db, helpers)
+        if self.params.key and self.params.method then
+          local cache_key = get_cache_key(self.params.key, self.params.method)
+          kong.cache:invalidate(cache_key)
+        end
+
         return endpoints.post_collection_endpoint(schema)(self, db, helpers)
       end
     }
@@ -16,6 +25,7 @@ return {
     schema = schema,
     methods = {
       DELETE = function(self, db, helpers)
+        local entity = db[schema.name]:select({id = self.params.id})
         local success, err = db[schema.name]:delete({id = self.params.id})
 
         if not success then
@@ -23,6 +33,11 @@ return {
             msg = err,
           })
           return kong.response.exit(500, "Database error")
+        end
+
+        if entity then
+          local cache_key = get_cache_key(entity.key, entity.method)
+          kong.cache:invalidate(cache_key)
         end
 
         return kong.response.exit(204)

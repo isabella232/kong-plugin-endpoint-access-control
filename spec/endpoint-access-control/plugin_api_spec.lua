@@ -67,7 +67,7 @@ describe("EndpointAccessControl", function()
             method = "POST",
             path = "/allowed-endpoints",
             body = {
-              key = "key001",
+              key = "key002",
               method = http_method,
               url_pattern = "/api/v1/foobar"
             },
@@ -88,7 +88,7 @@ describe("EndpointAccessControl", function()
             method = "POST",
             path = "/allowed-endpoints",
             body = {
-              key = "key001",
+              key = "key003",
               method = http_method,
               url_pattern = "/api/v1/foobar"
             },
@@ -109,7 +109,7 @@ describe("EndpointAccessControl", function()
           method = "POST",
           path = "/allowed-endpoints",
           body = {
-            key = "key001",
+            key = "key004",
             method = "POST",
             url_pattern = "/api/v1/foobar"
           },
@@ -127,9 +127,9 @@ describe("EndpointAccessControl", function()
       it("should return the permission setting to the specific key when it exists", function ()
 
         local settings = {
-          { key = "key001", method = "POST", url_pattern = "/api/v1/foobar" },
-          { key = "key001", method = "GET", url_pattern = "/api/v1/foobar/2" },
-          { key = "key002", method = "GET", url_pattern = "/api/v1/foobar/bar" }
+          { key = "key005", method = "POST", url_pattern = "/api/v1/foobar" },
+          { key = "key005", method = "GET", url_pattern = "/api/v1/foobar/2" },
+          { key = "key006", method = "GET", url_pattern = "/api/v1/foobar/bar" }
         }
 
         for _, setting in ipairs(settings) do
@@ -145,34 +145,17 @@ describe("EndpointAccessControl", function()
 
         local response = send_admin_request({
           method = "GET",
-          path = "/allowed-endpoints/keys/key001",
-          headers = {
-            ["Content-Type"] = "application/json"
-          }
+          path = "/allowed-endpoints/keys/key005"
         })
 
         assert.are.equals(200, response.status)
-
-        local allowed_endpoints = {
-          { key = "key001", method = "POST", url_pattern = "/api/v1/foobar" },
-          { key = "key001", method = "GET", url_pattern = "/api/v1/foobar/2" },
-        }
-
-        for index, entpoint in pairs(allowed_endpoints) do
-          assert.are.equals(response.body.allowed_endpoints[index].key, entpoint.key)
-          assert.are.equals(response.body.allowed_endpoints[index].method, entpoint.method)
-          assert.are.equals(response.body.allowed_endpoints[index].url_pattern, entpoint.url_pattern)
-        end
-
+        assert.are.equals(2, #response.body.allowed_endpoints)
       end)
 
       it("should return 404 when the key does not exists", function ()
         local response = send_admin_request({
           method = "GET",
-          path = "/allowed-endpoints/keys/key001/",
-          headers = {
-            ["Content-Type"] = "application/json"
-          }
+          path = "/allowed-endpoints/keys/key007/"
         })
 
         assert.are.equals(404, response.status)
@@ -182,10 +165,7 @@ describe("EndpointAccessControl", function()
       it("should return 500 when database error occurred", function ()
         local response = send_admin_request({
           method = "GET",
-          path = "/allowed-endpoints/keys/'",
-          headers = {
-            ["Content-Type"] = "application/json"
-          }
+          path = "/allowed-endpoints/keys/'"
         })
 
         assert.are.equals(500, response.status)
@@ -200,7 +180,7 @@ describe("EndpointAccessControl", function()
         local setting_creation_response = send_admin_request({
           method = "POST",
           path = "/allowed-endpoints",
-          body = { key = "key001", method = "POST", url_pattern = "/api/v1/foobar" },
+          body = { key = "key008", method = "POST", url_pattern = "/api/v1/foobar" },
           headers = {
             ["Content-Type"] = "application/json"
           }
@@ -209,9 +189,6 @@ describe("EndpointAccessControl", function()
         local delete_response = send_admin_request({
           method = "DELETE",
           path = "/allowed-endpoints/" .. setting_creation_response.body.id,
-          headers = {
-            ["Content-Type"] = "application/json"
-          }
         })
 
         assert.are.equals(204, delete_response.status)
@@ -221,13 +198,106 @@ describe("EndpointAccessControl", function()
         local response = send_admin_request({
           method = "DELETE",
           path = "/allowed-endpoints/123",
+        })
+
+        assert.are.equals(500, response.status)
+        assert.are.equals("Database error", response.body)
+      end)
+
+    end)
+
+    context("Cache invalidation", function()
+
+      local service
+
+      before_each(function()
+        service = kong_sdk.services:create({
+          name = "test-service",
+          url = "http://mockbin:8080/request"
+        })
+
+        kong_sdk.routes:create_for_service(service.id, "/test")
+
+        kong_sdk.plugins:create({
+          service = {
+            id = service.id
+          },
+          name = "endpoint-access-control",
+          config = {}
+        })
+      end)
+
+      it("should invalidate cache on entity delete", function ()
+
+        local setting_creation_response = send_admin_request({
+          method = "POST",
+          path = "/allowed-endpoints",
+          body = { key = "key009", method = "POST", url_pattern = "^/test/%d+$" },
           headers = {
             ["Content-Type"] = "application/json"
           }
         })
 
-        assert.are.equals(500, response.status)
-        assert.are.equals("Database error", response.body)
+        local first_response = send_request({
+          method = "POST",
+          path = "/test/1234",
+          headers = {
+            ["x-consumer-username"] = "key009"
+          }
+        })
+
+        assert.are.equal(200, first_response.status)
+
+        local delete_response = send_admin_request({
+          method = "DELETE",
+          path = "/allowed-endpoints/" .. setting_creation_response.body.id,
+        })
+
+        assert.are.equals(204, delete_response.status)
+
+        local cache_key = "endpoint_access_control_permissions:key009:POST"
+        helpers.wait_for_invalidation(cache_key)
+
+        local second_response = send_request({
+          method = "POST",
+          path = "/test/1234",
+          headers = {
+            ["x-consumer-username"] = "key009"
+          }
+        })
+
+        assert.are.equal(403, second_response.status)
+      end)
+
+      it("should invalidate cache on entity create #only", function ()
+        local first_response = send_request({
+          method = "POST",
+          path = "/test/1234",
+          headers = {
+            ["x-consumer-username"] = "key010"
+          }
+        })
+
+        assert.are.equal(403, first_response.status)
+
+        send_admin_request({
+          method = "POST",
+          path = "/allowed-endpoints",
+          body = { key = "key010", method = "POST", url_pattern = "^/test/%d+$" },
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
+        })
+
+        local second_response = send_request({
+          method = "POST",
+          path = "/test/1234",
+          headers = {
+            ["x-consumer-username"] = "key010"
+          }
+        })
+
+        assert.are.equal(200, second_response.status)
       end)
     end)
   end)
