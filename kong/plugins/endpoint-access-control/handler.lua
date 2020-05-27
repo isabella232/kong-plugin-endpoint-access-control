@@ -4,7 +4,7 @@ local EndpointAccessControlPermissionsDb = require "kong.plugins.endpoint-access
 
 local EndpointAccessControlHandler = BasePlugin:extend()
 
-EndpointAccessControlHandler.PRIORITY = 2000
+EndpointAccessControlHandler.PRIORITY = 950
 
 function EndpointAccessControlHandler:new()
   EndpointAccessControlHandler.super.new(self, "endpoint-access-control")
