@@ -20,5 +20,9 @@ build = {
   modules = {
     ["kong.plugins.endpoint-access-control.handler"] = "kong/plugins/endpoint-access-control/handler.lua",
     ["kong.plugins.endpoint-access-control.schema"] = "kong/plugins/endpoint-access-control/schema.lua",
+    ["kong.plugins.endpoint-access-control.api"] = "kong/plugins/endpoint-access-control/api.lua",
+    ["kong.plugins.endpoint-access-control.endpoint_access_control_permissions_db"] = "kong/plugins/endpoint-access-control/endpoint_access_control_permissions_db.lua",
+    ["kong.plugins.endpoint-access-control.migrations.000_base_endpoint_permission"] = "kong/plugins/endpoint-access-control/migrations/000_base_endpoint_permission.lua",
+    ["kong.plugins.endpoint-access-control.migrations.init"] = "kong/plugins/endpoint-access-control/migrations/init.lua",
   }
 }
