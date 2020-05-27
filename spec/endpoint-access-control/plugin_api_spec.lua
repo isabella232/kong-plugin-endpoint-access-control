@@ -269,7 +269,7 @@ describe("EndpointAccessControl", function()
         assert.are.equal(403, second_response.status)
       end)
 
-      it("should invalidate cache on entity create #only", function ()
+      it("should invalidate cache on entity create", function ()
         local first_response = send_request({
           method = "POST",
           path = "/test/1234",

@@ -36,257 +36,66 @@ describe("EndpointAccessControl", function()
       consumer = kong_sdk.consumers:create({
         username = "test-consumer"
       })
+
+      --helpers.get_cache(db):purge()
     end)
 
-    it("should set config default values", function()
-      local response = kong_sdk.plugins:create({
-        service = {
-          id = service.id
-        },
-        name = "endpoint-access-control",
-        config = {}
-      })
-
-      assert.are.same({
-        darklaunch = false
-      }, response.config)
-    end)
-
-    it("should terminate request with 403 http status", function()
-      kong_sdk.plugins:create({
-        service = {
-          id = service.id
-        },
-        name = "endpoint-access-control",
-        config = {}
-      })
-
-      local response = send_request({
-        method = "GET",
-        path = "/test"
-      })
-
-      assert.are.equal(403, response.status)
-    end)
-
-    it("should not terminate request when darklaunch mode is on", function()
-      kong_sdk.plugins:create({
-        consumer = {
-          id = consumer.id
-        },
-        name = "endpoint-access-control",
-        config = {
-          darklaunch = true
-        }
-      })
-
-      local response = send_request({
-        method = "GET",
-        path = "/test"
-      })
-
-      assert.are.equal(200, response.status)
-    end)
-
-    it("should not terminate request when api call is enabled for the api user", function()
-      helpers.db.endpoint_access_control_permissions:insert({
-        key = "test_user_wsse",
-        method = "POST",
-        url_pattern = "/test"
-      })
-
-      kong_sdk.plugins:create({
-        service = {
-          id = service.id
-        },
-        name = "endpoint-access-control",
-        config = {
-          darklaunch = false
-        }
-      })
-
-      local response = send_request({
-        method = "POST",
-        path = "/test",
-        headers = {
-          ["x-consumer-username"] = "test_user_wsse"
-        }
-      })
-
-      assert.are.equal(200, response.status)
-    end)
-
-    it("should terminate request when api call is not enabled for the api user", function()
-      helpers.db.endpoint_access_control_permissions:insert({
-        key = "test_user_wsse_002",
-        method = "POST",
-        url_pattern = "/test_not_matching"
-      })
-
-      kong_sdk.plugins:create({
-        service = {
-          id = service.id
-        },
-        name = "endpoint-access-control",
-        config = {
-          darklaunch = false
-        }
-      })
-
-      local response = send_request({
-        method = "POST",
-        path = "/test",
-        headers = {
-          ["x-consumer-username"] = "test_user_wsse_002"
-        }
-      })
-
-      assert.are.equal(403, response.status)
-    end)
-
-    it("should terminate request when there is no allowed endpoints for the consumer", function()
-      kong_sdk.plugins:create({
-        service = {
-          id = service.id
-        },
-        name = "endpoint-access-control",
-        config = {
-          darklaunch = false
-        }
-      })
-
-      local response = send_request({
-        method = "POST",
-        path = "/test",
-        headers = {
-          ["x-consumer-username"] = "test_user_wsse_003"
-        }
-      })
-
-      assert.are.equal(403, response.status)
-    end)
-
-    it("should allow request when the request path matches the url pattern", function()
-      helpers.db.endpoint_access_control_permissions:insert({
-        key = "test_user_wsse_004",
-        method = "POST",
-        url_pattern = "^/test/%d+$"
-      })
-
-      kong_sdk.plugins:create({
-        service = {
-          id = service.id
-        },
-        name = "endpoint-access-control",
-        config = {
-          darklaunch = false
-        }
-      })
-
-      local response = send_request({
-        method = "POST",
-        path = "/test/1234",
-        headers = {
-          ["x-consumer-username"] = "test_user_wsse_004"
-        }
-      })
-
-      assert.are.equal(200, response.status)
-    end)
-
-    it("should allow request when the request with query params matches url pattern", function()
-      helpers.db.endpoint_access_control_permissions:insert({
-        key = "test_user_wsse_005",
-        method = "POST",
-        url_pattern = "^/test/%d+$"
-      })
-
-      kong_sdk.plugins:create({
-        service = {
-          id = service.id
-        },
-        name = "endpoint-access-control",
-        config = {
-          darklaunch = false
-        }
-      })
-
-      local response = send_request({
-        method = "POST",
-        path = "/test/1234?test=1",
-        headers = {
-          ["x-consumer-username"] = "test_user_wsse_005"
-        }
-      })
-
-      assert.are.equal(200, response.status)
-    end)
-
-    it("should terminate request when the request path with request method does not match any enabled endpoint", function()
-      helpers.db.endpoint_access_control_permissions:insert({
-        key = "test_user_wsse_006",
-        method = "POST",
-        url_pattern = "^/test/%d+$"
-      })
-
-      kong_sdk.plugins:create({
-        service = {
-          id = service.id
-        },
-        name = "endpoint-access-control",
-        config = {
-          darklaunch = false
-        }
-      })
-
-      local response = send_request({
-        method = "GET",
-        path = "/test/1234",
-        headers = {
-          ["x-consumer-username"] = "test_user_wsse_006"
-        }
-      })
-
-      assert.are.equal(403, response.status)
-    end)
-
-    it("should respond with 500 when user is invalid", function()
-      helpers.db.endpoint_access_control_permissions:insert({
-        key = "test_user_wsse_007",
-        method = "POST",
-        url_pattern = "^/test/%d+$"
-      })
-
-      kong_sdk.plugins:create({
-        service = {
-          id = service.id
-        },
-        name = "endpoint-access-control",
-        config = {
-          darklaunch = false
-        }
-      })
-
-      local response = send_request({
-        method = "GET",
-        path = "/test/1234",
-        headers = {
-          ["x-consumer-username"] = "' or 1=1;--"
-        }
-      })
-
-      assert.are.equal(500, response.status)
-    end)
-
-    context("Cache key method collections", function()
-
-      it("should keep collection in cache", function()
-        helpers.db.endpoint_access_control_permissions:insert({
-          key = "test_user_wsse_008",
-          method = "POST",
-          url_pattern = "^/test/%d+$"
+    context("Config", function()
+      it("should set config default values", function()
+        local response = kong_sdk.plugins:create({
+          service = {
+            id = service.id
+          },
+          name = "endpoint-access-control",
+          config = {}
         })
 
+        assert.are.same({
+          darklaunch = false
+        }, response.config)
+      end)
+
+      it("should terminate request with 403 http status", function()
+        kong_sdk.plugins:create({
+          service = {
+            id = service.id
+          },
+          name = "endpoint-access-control",
+          config = {}
+        })
+
+        local response = send_request({
+          method = "GET",
+          path = "/test"
+        })
+
+        assert.are.equal(403, response.status)
+      end)
+    end)
+
+    context("when darklaunch mode is on", function()
+      it("should not terminate request", function()
+        kong_sdk.plugins:create({
+          consumer = {
+            id = consumer.id
+          },
+          name = "endpoint-access-control",
+          config = {
+            darklaunch = true
+          }
+        })
+
+        local response = send_request({
+          method = "GET",
+          path = "/test"
+        })
+
+        assert.are.equal(200, response.status)
+      end)
+    end)
+
+    context("when darklaunch mode is off", function()
+      before_each(function()
         kong_sdk.plugins:create({
           service = {
             id = service.id
@@ -296,30 +105,164 @@ describe("EndpointAccessControl", function()
             darklaunch = false
           }
         })
+      end)
 
-        local first_response = send_request({
+      it("should not terminate request when api call is enabled for the api user", function()
+        helpers.db.endpoint_access_control_permissions:insert({
+          key = "test_user_wsse",
           method = "POST",
-          path = "/test/1234",
+          url_pattern = "/test"
+        })
+
+        local response = send_request({
+          method = "POST",
+          path = "/test",
           headers = {
-            ["x-consumer-username"] = "test_user_wsse_008"
+            ["x-consumer-username"] = "test_user_wsse"
           }
         })
 
-        assert.are.equal(200, first_response.status)
+        assert.are.equal(200, response.status)
+      end)
 
-        assert(db.endpoint_access_control_permissions:truncate())
-
-        local second_response = send_request({
+      it("should terminate request when api call is not enabled for the api user", function()
+        helpers.db.endpoint_access_control_permissions:insert({
+          key = "test_user_wsse_002",
           method = "POST",
-          path = "/test/1234",
+          url_pattern = "/test_not_matching"
+        })
+
+        local response = send_request({
+          method = "POST",
+          path = "/test",
           headers = {
-            ["x-consumer-username"] = "test_user_wsse_008"
+            ["x-consumer-username"] = "test_user_wsse_002"
           }
         })
 
-        assert.are.equal(200, second_response.status)
+        assert.are.equal(403, response.status)
+      end)
+
+      it("should terminate request when there is no allowed endpoints for the consumer", function()
+
+        local response = send_request({
+          method = "POST",
+          path = "/test",
+          headers = {
+            ["x-consumer-username"] = "test_user_wsse_003"
+          }
+        })
+
+        assert.are.equal(403, response.status)
+      end)
+
+      it("should allow request when the request path matches the url pattern", function()
+        helpers.db.endpoint_access_control_permissions:insert({
+          key = "test_user_wsse_004",
+          method = "POST",
+          url_pattern = "^/test/%d+$"
+        })
+
+        local response = send_request({
+          method = "POST",
+          path = "/test/1234",
+          headers = {
+            ["x-consumer-username"] = "test_user_wsse_004"
+          }
+        })
+
+        assert.are.equal(200, response.status)
+      end)
+
+      it("should allow request when the request with query params matches url pattern", function()
+        helpers.db.endpoint_access_control_permissions:insert({
+          key = "test_user_wsse_005",
+          method = "POST",
+          url_pattern = "^/test/%d+$"
+        })
+
+        local response = send_request({
+          method = "POST",
+          path = "/test/1234?test=1",
+          headers = {
+            ["x-consumer-username"] = "test_user_wsse_005"
+          }
+        })
+
+        assert.are.equal(200, response.status)
+      end)
+
+      it("should terminate request when the request path with request method does not match any enabled endpoint", function()
+        helpers.db.endpoint_access_control_permissions:insert({
+          key = "test_user_wsse_006",
+          method = "POST",
+          url_pattern = "^/test/%d+$"
+        })
+
+        local response = send_request({
+          method = "GET",
+          path = "/test/1234",
+          headers = {
+            ["x-consumer-username"] = "test_user_wsse_006"
+          }
+        })
+
+        assert.are.equal(403, response.status)
+      end)
+
+      it("should respond with 500 when user is invalid", function()
+        helpers.db.endpoint_access_control_permissions:insert({
+          key = "test_user_wsse_007",
+          method = "POST",
+          url_pattern = "^/test/%d+$"
+        })
+
+        local response = send_request({
+          method = "GET",
+          path = "/test/1234",
+          headers = {
+            ["x-consumer-username"] = "' or 1=1;--"
+          }
+        })
+
+        assert.are.equal(500, response.status)
+      end)
+
+      context("Cache key method collections", function()
+
+        it("should keep collection in cache", function()
+          helpers.db.endpoint_access_control_permissions:insert({
+            key = "test_user_wsse_008",
+            method = "POST",
+            url_pattern = "^/test/%d+$"
+          })
+
+          local first_response = send_request({
+            method = "POST",
+            path = "/test/1234",
+            headers = {
+              ["x-consumer-username"] = "test_user_wsse_008"
+            }
+          })
+
+          assert.are.equal(200, first_response.status)
+
+          assert(db.endpoint_access_control_permissions:truncate())
+
+          local second_response = send_request({
+            method = "POST",
+            path = "/test/1234",
+            headers = {
+              ["x-consumer-username"] = "test_user_wsse_008"
+            }
+          })
+
+          assert.are.equal(200, second_response.status)
+        end)
+
       end)
 
     end)
+
   end)
 end)
