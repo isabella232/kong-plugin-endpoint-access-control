@@ -12,7 +12,7 @@ end
 
 function access_for_api_key_and_method(api_key,  method)
   if not api_key or not method then
-    Logger.getInstance(ngx):logError("Missing api_key or method")
+    Logger.getInstance(ngx):logInfo({message = "Missing api_key or method", api_key = api_key})
     return false
   end
 
@@ -29,7 +29,7 @@ function access_for_api_key_and_method(api_key,  method)
     end
   end
 
-  Logger.getInstance(ngx):logError("Could not find any matching permission")
+  Logger.getInstance(ngx):logInfo({message = "Could not find any matching permission", api_key = api_key, endpoints = api_key_endpoint_access_list})
   return false
 end
 
