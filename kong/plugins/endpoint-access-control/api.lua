@@ -58,10 +58,6 @@ return {
           return kong.response.exit(500, "Database error")
         end
 
-        if #allowed_endpoints == 0 then
-          return kong.response.exit(404, "The requested resource does not exist")
-        end
-
         return kong.response.exit(200, { allowed_endpoints = allowed_endpoints})
       end
     }

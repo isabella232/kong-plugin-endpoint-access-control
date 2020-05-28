@@ -1,6 +1,5 @@
 local helpers = require "spec.helpers"
 local kong_client = require "kong_client.spec.test_helpers"
-local uuid = require "kong.tools.utils".uuid
 
 describe("EndpointAccessControl", function()
   local kong_sdk, send_request, send_admin_request
@@ -158,8 +157,8 @@ describe("EndpointAccessControl", function()
           path = "/allowed-endpoints/keys/key007/"
         })
 
-        assert.are.equals(404, response.status)
-        assert.are.equals("The requested resource does not exist", response.body)
+        assert.are.equals(200, response.status)
+        assert.are.same({}, response.body.allowed_endpoints)
       end)
 
       it("should return 500 when database error occurred", function ()
