@@ -36,8 +36,6 @@ describe("EndpointAccessControl", function()
       consumer = kong_sdk.consumers:create({
         username = "test-consumer"
       })
-
-      --helpers.get_cache(db):purge()
     end)
 
     context("Config", function()
@@ -108,17 +106,20 @@ describe("EndpointAccessControl", function()
       end)
 
       it("should not terminate request when api call is enabled for the api user", function()
-        helpers.db.endpoint_access_control_permissions:insert({
-          key = "test_user_wsse",
+        send_admin_request({
           method = "POST",
-          url_pattern = "/test"
+          path = "/allowed-endpoints",
+          body = { key = "test_user_wsse", method = "POST", url_pattern = "/test" },
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
         })
 
         local response = send_request({
           method = "POST",
           path = "/test",
           headers = {
-            ["x-consumer-username"] = "test_user_wsse"
+            ["x-credential-username"] = "test_user_wsse"
           }
         })
 
@@ -126,17 +127,20 @@ describe("EndpointAccessControl", function()
       end)
 
       it("should terminate request when api call is not enabled for the api user", function()
-        helpers.db.endpoint_access_control_permissions:insert({
-          key = "test_user_wsse_002",
+        send_admin_request({
           method = "POST",
-          url_pattern = "/test_not_matching"
+          path = "/allowed-endpoints",
+          body = { key = "test_user_wsse_002", method = "POST", url_pattern = "/test_not_matching" },
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
         })
 
         local response = send_request({
           method = "POST",
           path = "/test",
           headers = {
-            ["x-consumer-username"] = "test_user_wsse_002"
+            ["x-credential-username"] = "test_user_wsse_002"
           }
         })
 
@@ -149,7 +153,7 @@ describe("EndpointAccessControl", function()
           method = "POST",
           path = "/test",
           headers = {
-            ["x-consumer-username"] = "test_user_wsse_003"
+            ["x-credential-username"] = "test_user_wsse_003"
           }
         })
 
@@ -157,53 +161,67 @@ describe("EndpointAccessControl", function()
       end)
 
       it("should allow request when the request path matches the url pattern", function()
-        helpers.db.endpoint_access_control_permissions:insert({
-          key = "test_user_wsse_004",
+        send_admin_request({
           method = "POST",
-          url_pattern = "^/test/%d+$"
+          path = "/allowed-endpoints",
+          body = { key = "test_user_wsse_004", method = "POST", url_pattern = "^/test/%d+$" },
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
         })
 
         local response = send_request({
           method = "POST",
           path = "/test/1234",
           headers = {
-            ["x-consumer-username"] = "test_user_wsse_004"
+            ["x-credential-username"] = "test_user_wsse_004"
           }
         })
 
         assert.are.equal(200, response.status)
       end)
 
-      it("should allow request when the request with query params matches url pattern", function()
-        helpers.db.endpoint_access_control_permissions:insert({
-          key = "test_user_wsse_005",
-          method = "POST",
-          url_pattern = "^/test/%d+$"
-        })
+      local test_cases = { { pattern = "^/test/%d+$", path = "/test/1234?test=1" }, { pattern = "^/test%-route/%d+$", path = "/test-route/1234?test=1"}}
 
-        local response = send_request({
-          method = "POST",
-          path = "/test/1234?test=1",
-          headers = {
-            ["x-consumer-username"] = "test_user_wsse_005"
-          }
-        })
+      for _, test_case in ipairs(test_cases) do
+        it("should allow request when the path is ".. test_case.path .." matches url pattern to " .. test_case.pattern, function()
 
-        assert.are.equal(200, response.status)
-      end)
+          send_admin_request({
+            method = "POST",
+            path = "/allowed-endpoints",
+            body = { key = "test_user_wsse_005", method = "POST", url_pattern = test_case.pattern },
+            headers = {
+              ["Content-Type"] = "application/json"
+            }
+          })
+
+          local response = send_request({
+            method = "POST",
+            path = test_case.path,
+            headers = {
+              ["x-credential-username"] = "test_user_wsse_005"
+            }
+          })
+
+          assert.are.equal(200, response.status)
+        end)
+      end
 
       it("should terminate request when the request path with request method does not match any enabled endpoint", function()
-        helpers.db.endpoint_access_control_permissions:insert({
-          key = "test_user_wsse_006",
+        send_admin_request({
           method = "POST",
-          url_pattern = "^/test/%d+$"
+          path = "/allowed-endpoints",
+          body = { key = "test_user_wsse_006", method = "POST", url_pattern = "^/test/%d+$" },
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
         })
 
         local response = send_request({
           method = "GET",
           path = "/test/1234",
           headers = {
-            ["x-consumer-username"] = "test_user_wsse_006"
+            ["x-credential-username"] = "test_user_wsse_006"
           }
         })
 
@@ -211,17 +229,20 @@ describe("EndpointAccessControl", function()
       end)
 
       it("should respond with 500 when user is invalid", function()
-        helpers.db.endpoint_access_control_permissions:insert({
-          key = "test_user_wsse_007",
+        send_admin_request({
           method = "POST",
-          url_pattern = "^/test/%d+$"
+          path = "/allowed-endpoints",
+          body = { key = "test_user_wsse_007", method = "POST", url_pattern = "^/test/%d+$" },
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
         })
 
         local response = send_request({
           method = "GET",
           path = "/test/1234",
           headers = {
-            ["x-consumer-username"] = "' or 1=1;--"
+            ["x-credential-username"] = "' or 1=1;--"
           }
         })
 
@@ -231,17 +252,20 @@ describe("EndpointAccessControl", function()
       context("Cache key method collections", function()
 
         it("should keep collection in cache", function()
-          helpers.db.endpoint_access_control_permissions:insert({
-            key = "test_user_wsse_008",
+          send_admin_request({
             method = "POST",
-            url_pattern = "^/test/%d+$"
+            path = "/allowed-endpoints",
+            body = { key = "test_user_wsse_008", method = "POST", url_pattern =  "^/test/%d+$" },
+            headers = {
+              ["Content-Type"] = "application/json"
+            }
           })
 
           local first_response = send_request({
             method = "POST",
             path = "/test/1234",
             headers = {
-              ["x-consumer-username"] = "test_user_wsse_008"
+              ["x-credential-username"] = "test_user_wsse_008"
             }
           })
 
@@ -253,7 +277,7 @@ describe("EndpointAccessControl", function()
             method = "POST",
             path = "/test/1234",
             headers = {
-              ["x-consumer-username"] = "test_user_wsse_008"
+              ["x-credential-username"] = "test_user_wsse_008"
             }
           })
 

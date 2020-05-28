@@ -227,7 +227,7 @@ describe("EndpointAccessControl", function()
         })
       end)
 
-      it("should invalidate cache on entity delete", function ()
+      it("should invalidate cache on entity delete #only", function ()
 
         local setting_creation_response = send_admin_request({
           method = "POST",
@@ -242,7 +242,7 @@ describe("EndpointAccessControl", function()
           method = "POST",
           path = "/test/1234",
           headers = {
-            ["x-consumer-username"] = "key009"
+            ["x-credential-username"] = "key009"
           }
         })
 
@@ -262,7 +262,7 @@ describe("EndpointAccessControl", function()
           method = "POST",
           path = "/test/1234",
           headers = {
-            ["x-consumer-username"] = "key009"
+            ["x-credential-username"] = "key009"
           }
         })
 
@@ -274,7 +274,7 @@ describe("EndpointAccessControl", function()
           method = "POST",
           path = "/test/1234",
           headers = {
-            ["x-consumer-username"] = "key010"
+            ["x-credential-username"] = "key010"
           }
         })
 
@@ -293,7 +293,7 @@ describe("EndpointAccessControl", function()
           method = "POST",
           path = "/test/1234",
           headers = {
-            ["x-consumer-username"] = "key010"
+            ["x-credential-username"] = "key010"
           }
         })
 
