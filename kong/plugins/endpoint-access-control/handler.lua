@@ -12,12 +12,11 @@ end
 
 function access_for_api_key_and_method(api_key,  method)
   if not api_key or not method then
-    Logger.getInstance(ngx):logInfo({message = "Missing api_key or method", api_key = api_key})
-    return false
+    error({message = "Missing api_key or method", api_key = api_key})
   end
 
   if string.find(api_key, "'") then
-    error("Consumer username contains illegal characters.")
+    error({message = "Consumer username contains illegal characters", api_key = api_key})
   end
 
   local api_key_endpoint_access_list = EndpointAccessControlPermissionsDb.find_by_api_key_and_method(api_key, method)
@@ -29,7 +28,7 @@ function access_for_api_key_and_method(api_key,  method)
     end
   end
 
-  Logger.getInstance(ngx):logInfo({message = "Could not find any matching permission", api_key = api_key, endpoints = api_key_endpoint_access_list})
+  Logger.getInstance(ngx):logWarning({message = "Could not find any matching permission", api_key = api_key, endpoints = api_key_endpoint_access_list})
   return false
 end
 

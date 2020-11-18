@@ -64,7 +64,10 @@ describe("EndpointAccessControl", function()
 
         local response = send_request({
           method = "GET",
-          path = "/test"
+          path = "/test",
+          headers = {
+            ["x-credential-username"] = "test_user_wsse"
+          }
         })
 
         assert.are.equal(403, response.status)
