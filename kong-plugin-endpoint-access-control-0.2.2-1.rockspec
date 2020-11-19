@@ -1,9 +1,9 @@
 package = "kong-plugin-endpoint-access-control"
-version = "0.2.1-1"
+version = "0.2.2-1"
 supported_platforms = {"linux", "macosx"}
 source = {
   url = "git+https://github.com/emartech/kong-plugin-endpoint-access-control.git",
-  tag = "0.2.1"
+  tag = "0.2.2"
 }
 description = {
   summary = "Endpoint Access Control for Kong API gateway plugins.",
