@@ -48,7 +48,7 @@ return {
     schema = schema,
     methods = {
       GET = function(self, db, helpers)
-        local query = string.format("SELECT * FROM endpoint_access_control_permissions WHERE key = '%s'", self.params.key)
+        local query = string.format("SELECT * FROM endpoint_access_control_permissions WHERE key = '%s'", self.params.key:gsub("'", ""))
         local allowed_endpoints, err = kong.db.connector:query(query)
 
         if err then
@@ -58,7 +58,7 @@ return {
           return kong.response.exit(500, "Database error")
         end
 
-        return kong.response.exit(200, { allowed_endpoints = allowed_endpoints})
+        return kong.response.exit(200, { allowed_endpoints = allowed_endpoints })
       end
     }
   }

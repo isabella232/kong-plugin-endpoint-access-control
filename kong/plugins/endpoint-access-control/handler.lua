@@ -10,7 +10,7 @@ function EndpointAccessControlHandler:new()
   EndpointAccessControlHandler.super.new(self, "endpoint-access-control")
 end
 
-function access_for_api_key_and_method(api_key,  method)
+local function access_for_api_key_and_method(api_key,  method)
   if not api_key or not method then
     error({message = "Missing api_key or method", api_key = api_key})
   end
@@ -28,7 +28,7 @@ function access_for_api_key_and_method(api_key,  method)
     end
   end
 
-  Logger.getInstance(ngx):logWarning({message = "Could not find any matching permission", api_key = api_key, endpoints = api_key_endpoint_access_list})
+  Logger.getInstance(ngx):logWarning({message = "Could not find any matching permission", api_key = api_key})
   return false
 end
 

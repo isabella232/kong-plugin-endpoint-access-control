@@ -1,5 +1,15 @@
 local helpers = require "spec.helpers"
 local kong_client = require "kong_client.spec.test_helpers"
+local Logger = require("logger")
+
+kong = kong or {}
+kong.db = kong.db or {
+  endpoint_access_control_permissions = {
+    schema = {}
+  }
+}
+
+local api = require "kong.plugins.endpoint-access-control.api"
 
 describe("EndpointAccessControl", function()
   local kong_sdk, send_request, send_admin_request
@@ -162,13 +172,46 @@ describe("EndpointAccessControl", function()
       end)
 
       it("should return 500 when database error occurred", function ()
-        local response = send_admin_request({
-          method = "GET",
-          path = "/allowed-endpoints/keys/'"
+        Logger.getInstance = function()
+          return {
+            logError = function() end
+          }
+        end
+
+        kong.db.connector = {
+          query = function (self, query)
+            return {}, "some error occured"
+          end
+        }
+
+        kong.response = {
+          exit = spy.new(function() end)
+        }
+
+        local api_handler = api["/allowed-endpoints/keys/:key"].methods
+
+        api_handler.GET({ params = { key = "key007" } })
+
+        assert.spy(kong.response.exit).was.called_with(500, "Database error")
+      end)
+
+      it("should handle sql injection", function ()
+        send_admin_request({
+          method = "POST",
+          path = "/allowed-endpoints",
+          body = { key = "key005", method = "GET", url_pattern = "/api/v1/foobar" },
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
         })
 
-        assert.are.equals(500, response.status)
-        assert.are.equals("Database error", response.body)
+        local response = send_admin_request({
+          method = "GET",
+          path = "/allowed-endpoints/keys/key005'--"
+        })
+
+        assert.are.equals(200, response.status)
+        assert.are.same({}, response.body.allowed_endpoints)
       end)
     end)
 
