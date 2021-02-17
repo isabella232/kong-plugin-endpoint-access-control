@@ -32,6 +32,7 @@ describe("EndpointAccessControl", function()
       })
 
       kong_sdk.routes:create_for_service(service.id, "/test")
+      kong_sdk.routes:create_for_service(service.id, "/TEST")
 
       consumer = kong_sdk.consumers:create({
         username = "test-consumer"
@@ -49,7 +50,8 @@ describe("EndpointAccessControl", function()
         })
 
         assert.are.same({
-          darklaunch = false
+          darklaunch = false,
+          path_replacements = {}
         }, response.config)
       end)
 
@@ -103,7 +105,8 @@ describe("EndpointAccessControl", function()
           },
           name = "endpoint-access-control",
           config = {
-            darklaunch = false
+            darklaunch = false,
+            path_replacements = {"^(/test/%d+/dosomethingelse)/.+=.+$|%1", "^/test/%d+/dosomethingelse$|SHOULD_NOT_REPLACE_WITH_THIS"}
           }
         })
       end)
@@ -182,6 +185,71 @@ describe("EndpointAccessControl", function()
         })
 
         assert.are.equal(200, response.status)
+      end)
+
+      it("should check path in case insensitive mode #only", function()
+        send_admin_request({
+          method = "POST",
+          path = "/allowed-endpoints",
+          body = { key = "test_user_wsse_004", method = "POST", url_pattern = "^/test/%d+$" },
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
+        })
+
+        local response = send_request({
+          method = "POST",
+          path = "/TEST/1234",
+          headers = {
+            ["x-credential-username"] = "test_user_wsse_004"
+          }
+        })
+
+        assert.are.equal(200, response.status)
+      end)
+
+      it("should replace api calls based on config", function()
+        send_admin_request({
+          method = "POST",
+          path = "/allowed-endpoints",
+          body = { key = "test_user_wsse_004", method = "POST", url_pattern = "^/test/%d+/dosomethingelse$" },
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
+        })
+
+        local response = send_request({
+          method = "POST",
+          path = "/test/1234/dosomethingelse/abcd=1",
+          headers = {
+            ["x-credential-username"] = "test_user_wsse_004"
+          }
+        })
+
+        assert.are.equal(200, response.status)
+
+      end)
+
+      it("should stop replacements after the first matching path", function()
+        send_admin_request({
+          method = "POST",
+          path = "/allowed-endpoints",
+          body = { key = "test_user_wsse_004", method = "POST", url_pattern = "^/test/%d+/dosomethingelse$" },
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
+        })
+
+        local response = send_request({
+          method = "POST",
+          path = "/test/1234/dosomethingelse/abcd=1",
+          headers = {
+            ["x-credential-username"] = "test_user_wsse_004"
+          }
+        })
+
+        assert.are.equal(200, response.status)
+
       end)
 
       local test_cases = { { pattern = "^/test/%d+$", path = "/test/1234?test=1" }, { pattern = "^/test%-route/%d+$", path = "/test-route/1234?test=1"}}

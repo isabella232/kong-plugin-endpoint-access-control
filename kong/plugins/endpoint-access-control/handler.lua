@@ -10,7 +10,20 @@ function EndpointAccessControlHandler:new()
   EndpointAccessControlHandler.super.new(self, "endpoint-access-control")
 end
 
-local function access_for_api_key_and_method(api_key,  method)
+local function get_replaced_path(path, path_replacements)
+  for _, path_replacement in pairs(path_replacements) do
+    local matcher, replacer = path_replacement:match("^(.+)|(.*)$")
+    local corrected_path, replace_count = path:gsub(matcher, replacer)
+
+    if replace_count > 0 then
+      return corrected_path
+    end
+  end
+
+  return path
+end
+
+local function access_for_api_key_and_method(api_key,  method, config)
   if not api_key or not method then
     error({message = "Missing api_key or method", api_key = api_key})
   end
@@ -21,14 +34,16 @@ local function access_for_api_key_and_method(api_key,  method)
 
   local api_key_endpoint_access_list = EndpointAccessControlPermissionsDb.find_by_api_key_and_method(api_key, method)
 
-  local path = kong.request.get_path()
+  local original_path = kong.request.get_path():lower()
+  local path = get_replaced_path(original_path, config.path_replacements or {})
+
   for i = 1, #api_key_endpoint_access_list do
     if string.match(path, api_key_endpoint_access_list[i].url_pattern) then
       return true
     end
   end
 
-  Logger.getInstance(ngx):logWarning({message = "Could not find any matching permission", api_key = api_key})
+  Logger.getInstance(ngx):logWarning({message = "Could not find any matching permission", api_key = api_key, request_fixed_path = path})
   return false
 end
 
@@ -38,7 +53,7 @@ function EndpointAccessControlHandler:access(config)
   local api_key = kong.request.get_header("x-credential-username")
   local method = kong.request.get_method()
 
-  local success, result = pcall(access_for_api_key_and_method, api_key, method)
+  local success, result = pcall(access_for_api_key_and_method, api_key, method, config)
 
   if success then
     if config.darklaunch then

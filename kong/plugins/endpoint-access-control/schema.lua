@@ -7,8 +7,17 @@ return {
         fields = {
           {
             darklaunch = {
-              type = "boolean", 
+              type = "boolean",
               default = false
+            }
+          },
+          {
+            path_replacements = {
+              type = "array",
+              elements = {
+                type = "string"
+              },
+              default = {}
             }
           }
         }
