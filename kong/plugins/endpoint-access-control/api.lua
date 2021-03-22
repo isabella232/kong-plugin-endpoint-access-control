@@ -7,6 +7,22 @@ local function get_cache_key(api_key, method)
   return "endpoint_access_control_permissions:" .. api_key .. ":" .. method
 end
 
+local function decode_url(key)
+  local decode_map = {
+    { pattern = "%%20", replacement = " " },
+    { pattern = "+", replacement = " " },
+    { pattern = "%%26", replacement = "&" },
+  }
+
+  local decoded_key = key
+
+  for _, decode_rule in pairs(decode_map) do
+    decoded_key = decoded_key:gsub(decode_rule["pattern"], decode_rule["replacement"])
+  end
+
+  return decoded_key
+end
+
 return {
   ["/allowed-endpoints"] = {
     schema = schema,
@@ -48,7 +64,8 @@ return {
     schema = schema,
     methods = {
       GET = function(self, db, helpers)
-        local query = string.format("SELECT * FROM endpoint_access_control_permissions WHERE key = '%s'", self.params.key:gsub("'", ""))
+        local key = decode_url(self.params.key)
+        local query = string.format("SELECT * FROM endpoint_access_control_permissions WHERE key = '%s'", key:gsub("'", ""))
         local allowed_endpoints, err = kong.db.connector:query(query)
 
         if err then

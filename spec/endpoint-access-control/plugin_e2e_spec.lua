@@ -187,7 +187,7 @@ describe("EndpointAccessControl", function()
         assert.are.equal(200, response.status)
       end)
 
-      it("should check path in case insensitive mode #only", function()
+      it("should check path in case insensitive mode", function()
         send_admin_request({
           method = "POST",
           path = "/allowed-endpoints",
