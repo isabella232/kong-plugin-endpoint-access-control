@@ -19,6 +19,15 @@ return {
               },
               default = {}
             }
+          },
+          {
+            allowed_api_key_patterns = {
+              type = "array",
+              elements = {
+                type = "string"
+              },
+              default = {}
+            }
           }
         }
       }

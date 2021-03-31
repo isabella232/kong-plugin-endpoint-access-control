@@ -48,10 +48,24 @@ local function access_for_api_key_and_method(api_key,  method, config)
   return false
 end
 
+local function check_allowed_api_key_patterns(patterns, api_key)
+  for i = 1, #patterns do
+    if string.match(api_key, patterns[i]) then
+      return true
+    end
+  end
+  return false
+end
+
 function EndpointAccessControlHandler:access(config)
   EndpointAccessControlHandler.super.access(self)
 
   local api_key = kong.request.get_header("x-credential-username")
+
+  if check_allowed_api_key_patterns(config.allowed_api_key_patterns, api_key) then
+    return
+  end
+
   local method = kong.request.get_method()
 
   local success, result = pcall(access_for_api_key_and_method, api_key, method, config)

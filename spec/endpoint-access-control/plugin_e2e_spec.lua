@@ -51,7 +51,8 @@ describe("EndpointAccessControl", function()
 
         assert.are.same({
           darklaunch = false,
-          path_replacements = {}
+          path_replacements = {},
+          allowed_api_key_patterns = {}
         }, response.config)
       end)
 
@@ -73,6 +74,60 @@ describe("EndpointAccessControl", function()
         })
 
         assert.are.equal(403, response.status)
+      end)
+
+      local test_cases = {
+        { allowed_api_key_patterns = { "_pattern" }, api_key = "test_user_pattern", name = "one pattern" },
+        { allowed_api_key_patterns = { "_pattern2", "_pattern" }, api_key = "test_user_pattern", name = "two patterns" }
+      }
+
+      for _, test_case in ipairs(test_cases) do
+        it("should respond with 200 if allowed_api_key_patterns contains " .. test_case.name, function()
+
+          kong_sdk.plugins:create({
+            service = {
+              id = service.id
+            },
+            name = "endpoint-access-control",
+            config = {
+              allowed_api_key_patterns = test_case.allowed_api_key_patterns
+            }
+          })
+
+          local response = send_request({
+            method = "GET",
+            path = "/test",
+            headers = {
+              ["x-credential-username"] = test_case.api_key
+            }
+          })
+
+          assert.are.equal(200, response.status)
+        end)
+      end
+
+      it("should respond with 200 if allowed_api_key_patterns matches the api key", function()
+        kong_sdk.plugins:create({
+          service = {
+            id = service.id
+          },
+          name = "endpoint-access-control",
+          config = {
+            allowed_api_key_patterns = {
+              "_pattern"
+            }
+          }
+        })
+
+        local response = send_request({
+          method = "GET",
+          path = "/test",
+          headers = {
+            ["x-credential-username"] = "test_user_pattern"
+          }
+        })
+
+        assert.are.equal(200, response.status)
       end)
     end)
 
