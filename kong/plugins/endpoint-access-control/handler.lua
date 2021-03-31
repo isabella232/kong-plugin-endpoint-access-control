@@ -44,6 +44,7 @@ local function access_for_api_key_and_method(api_key,  method, config)
   end
 
   Logger.getInstance(ngx):logWarning({message = "Could not find any matching permission", api_key = api_key, request_fixed_path = path})
+  kong.service.request.set_header("X-Missing-Api-Permission", true)
   return false
 end
 
