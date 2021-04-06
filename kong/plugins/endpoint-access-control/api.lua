@@ -7,21 +7,23 @@ local function get_cache_key(api_key, method)
   return "endpoint_access_control_permissions:" .. api_key .. ":" .. method
 end
 
-local function decode_url(key)
-  local decode_map = {
-    { pattern = "%%20", replacement = " " },
-    { pattern = "+", replacement = " " },
-    { pattern = "%%26", replacement = "&" },
-  }
+-- local function decode_url(key)
+--   local decode_map = {
+--     { pattern = "%%20", replacement = " " },
+--     { pattern = "+", replacement = " " },
+--     { pattern = "%%26", replacement = "&" },
+--   }
 
-  local decoded_key = key
+--   local decoded_key = key
 
-  for _, decode_rule in pairs(decode_map) do
-    decoded_key = decoded_key:gsub(decode_rule["pattern"], decode_rule["replacement"])
-  end
+--   for _, decode_rule in pairs(decode_map) do
+--     decoded_key = decoded_key:gsub(decode_rule["pattern"], decode_rule["replacement"])
+--   end
 
-  return decoded_key
-end
+--   return decoded_key
+-- end
+
+local decode_url = ngx.unescape_uri
 
 return {
   ["/allowed-endpoints"] = {

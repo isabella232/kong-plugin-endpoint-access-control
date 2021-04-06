@@ -171,34 +171,28 @@ describe("EndpointAccessControl", function()
         assert.are.same({}, response.body.allowed_endpoints)
       end)
 
-      local testCases = {
-        { key = "key dummy008", url_encoded = "key%20dummy008", test_message = "space" },
-        { key = "key dummy009", url_encoded = "key+dummy009", test_message = "+" },
-        { key = "key&dummy010", url_encoded = "key%26dummy010", test_message = "&" }
-      }
+      it("should handle url encoded keys", function ()
 
-      for _, testCase in ipairs(testCases) do
+        local API_KEY = "-_.!~*()# ;,/?:@&=+$"
+        local ENCODED_API_KEY = "-_.!~*()%23%20%3B%2C%2F%3F%3A%40%26%3D%2B%24"
 
-        it("should return the permission setting to the specific url encoded key when it contains" .. testCase["test_message"], function ()
+        send_admin_request({
+          method = "POST",
+          path = "/allowed-endpoints",
+          body = { key = API_KEY, method = "POST", url_pattern = "/api/v1/foobar" },
+          headers = {
+            ["Content-Type"] = "application/json"
+          }
+        })
 
-          send_admin_request({
-            method = "POST",
-            path = "/allowed-endpoints",
-            body = { key = testCase["key"], method = "POST", url_pattern = "/api/v1/foobar" },
-            headers = {
-              ["Content-Type"] = "application/json"
-            }
-          })
+        local response = send_admin_request({
+          method = "GET",
+          path = "/allowed-endpoints/keys/" .. ENCODED_API_KEY
+        })
 
-          local response = send_admin_request({
-            method = "GET",
-            path = "/allowed-endpoints/keys/" .. testCase["url_encoded"]
-          })
-
-          assert.are.equals(200, response.status)
-          assert.are.equals(1, #response.body.allowed_endpoints)
-        end)
-      end
+        assert.are.equals(200, response.status)
+        assert.are.equals(1, #response.body.allowed_endpoints)
+      end)
 
       it("should return 500 when database error occurred", function ()
         Logger.getInstance = function()
